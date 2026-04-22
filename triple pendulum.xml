@@ -1,0 +1,31 @@
+<mujoco>
+	<option timestep="0.005" integrator="RK4" />
+	
+	<worldbody>
+		<light diffuse=".5 .5 .5" pos="0 0 6" dir="0 0 -1"/>
+		<geom type="plane" size="2 2 .01" rgba=".9 0 0 1"/>
+		
+		<body name="cart" pos="0 0 4" >
+			<geom type="box" size="0.2 0.5 0.1" rgba="0.5 0.5 0.5 1"/>
+			<joint name="slider" type="slide" axis="1 0 0" damping="0.5" range="-1.5 1.5" limited="true"/>
+			
+			<body name="link1" pos="0 -0.6 -0.5">
+				<joint name="pin1" type="hinge" axis="0 1 0" pos="0 0 0.5" damping="0.1" armature="0.01"/>
+				<geom type="cylinder" size="0.05 0.5" rgba="1 0 0 1" mass="1.0"/>
+				
+				<body name="link2" pos="0 -0.1 -1.0">
+					<joint name="pin2" type="hinge" axis="0 1 0" pos="0 0 0.5" damping="0.1" armature="0.01"/>
+					<geom type="cylinder" size="0.05 0.5" rgba="0 .9 0 1" mass="0.7"/>
+					
+					<body name="link3" pos="0 -0.1 -1.0">
+						<joint name="pin3" type="hinge" axis="0 1 0" pos="0 0 0.5" damping="0.1" armature="0.01"/>
+						<geom type="cylinder" size="0.05 0.5" rgba="0 0 1 1" mass="0.4"/>		
+		   </body>
+		  </body>
+		 </body>
+		</body>
+	</worldbody>
+	<actuator>
+		<motor joint="slider" gear="500" ctrlrange="-1 1" ctrllimited="true"/>
+	</actuator>
+</mujoco>
