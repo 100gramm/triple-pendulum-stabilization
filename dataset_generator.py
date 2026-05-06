@@ -8,7 +8,8 @@ import multiprocessing as mp
 
 XML_PATH = 'triple pendulum.xml'
 IMG_SIZE = 448
-TOTAL_SAMPLES = 100_000
+TOTAL_SAMPLES = 85_000
+CHUNK_SIZE = 1000
 model = mujoco.MjModel.from_xml_path(XML_PATH)
 data = mujoco.MjData(model)
 
@@ -97,8 +98,6 @@ class DatasetWriter:
         self.hdf5_file['angles'][self.index] = angles
         self.index += 1
 
-
-
 def worker_task(num_samples):
     model = mujoco.MjModel.from_xml_path(XML_PATH)
     data = mujoco.MjData(model)
@@ -161,24 +160,33 @@ def worker_task(num_samples):
     return images, coords_list, angles_list
 
 if __name__ == "__main__":
-    num_cpus = 10
-    samples_per_worker = TOTAL_SAMPLES // num_cpus
+    num_cpus = 10 
+    num_chunks = TOTAL_SAMPLES // CHUNK_SIZE
     
-    print(f"Запуск на {num_cpus} ядрах...")
-    with mp.Pool(processes=num_cpus) as pool:
-        results = list(tqdm(pool.imap(worker_task, [samples_per_worker] * num_cpus), total=num_cpus))
-
-    print("Запись в файл...")
     with h5py.File('triple_pendulum_dataset.hdf5', 'w') as f:
-        d_img = f.create_dataset('images', shape=(TOTAL_SAMPLES, IMG_SIZE, IMG_SIZE, 1), dtype=np.uint8, compression='gzip')
-        d_coord = f.create_dataset('coords', shape=(TOTAL_SAMPLES, 8), dtype=np.float32)
-        d_angle = f.create_dataset('angles', shape=(TOTAL_SAMPLES, 3), dtype=np.float32)
-        
-        for i, (imgs, coords, angles) in enumerate(results):
-            start = i * samples_per_worker
-            end = start + samples_per_worker
-            d_img[start:end] = imgs
-            d_coord[start:end] = coords
-            d_angle[start:end] = angles
+        f.create_dataset('images', shape=(TOTAL_SAMPLES, IMG_SIZE, IMG_SIZE, 1), dtype=np.uint8, compression='gzip')
+        f.create_dataset('coords', shape=(TOTAL_SAMPLES, 8), dtype=np.float32)
+        f.create_dataset('angles', shape=(TOTAL_SAMPLES, 3), dtype=np.float32)
 
-    print("Готово.")
+    print(f"Запуск: {num_chunks} чанков по {CHUNK_SIZE} образцов на {num_cpus} ядрах.")
+    
+    with mp.Pool(processes=num_cpus) as pool:
+        pbar = tqdm(total=TOTAL_SAMPLES, desc="Генерация")
+        current_idx = 0
+        
+        for imgs, coords, angles in pool.imap(worker_task, [CHUNK_SIZE] * num_chunks):
+            with h5py.File('triple_pendulum_dataset.hdf5', 'a') as f:
+                num_received = imgs.shape[0]
+                end_idx = current_idx + num_received
+                
+                f['images'][current_idx:end_idx] = imgs
+                f['coords'][current_idx:end_idx] = coords
+                f['angles'][current_idx:end_idx] = angles
+                
+                current_idx = end_idx
+            
+            pbar.update(num_received)
+            
+        pbar.close()
+
+    print(f"Готово. Датасет сохранен.")

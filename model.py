@@ -14,13 +14,13 @@ TOTAL_TIMESTAPS = 100_000_000
 
 posible_targets = [
     np.array([0, 0, 0]),
-    np.array([np.pi / 2, 0, 0]),
-    np.array([0, np.pi / 2, 0]),
-    np.array([0, 0, np.pi / 2]),
-    np.array([np.pi / 2, np.pi / 2, 0]),
-    np.array([np.pi / 2, 0, np.pi / 2]),
-    np.array([0, np.pi / 2, np.pi / 2]),
-    np.array([np.pi / 2, np.pi / 2, np.pi / 2])
+    np.array([np.pi, 0, 0]),
+    np.array([0, np.pi, 0]),
+    np.array([0, 0, np.pi]),
+    np.array([np.pi, np.pi, 0]),
+    np.array([np.pi, 0, np.pi]),
+    np.array([0, np.pi, np.pi]),
+    np.array([np.pi, np.pi, np.pi])
 ]
 
 class TriplePendulumEnv(gym.envs.mujoco.MujocoEnv):
