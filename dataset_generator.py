@@ -8,7 +8,7 @@ import multiprocessing as mp
 
 XML_PATH = 'triple pendulum.xml'
 IMG_SIZE = 448
-TOTAL_SAMPLES = 85_000
+TOTAL_SAMPLES = 100_000_000
 CHUNK_SIZE = 1000
 model = mujoco.MjModel.from_xml_path(XML_PATH)
 data = mujoco.MjData(model)
