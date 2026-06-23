@@ -150,256 +150,55 @@ We formalize the task as a continuous-control Markov Decision Process (MDP):
 
 **8. Reward Design — Full Decomposition**
 
-Reward engineering is critical to encourage the two-phase strategy required by swing-up tasks:
+Reward engineering is critical to encourage the two-phase strategy required by swing-up tasks: (1) inject energy and reduce global tracking error to enter a capture region, and (2) switch to a hold mode that rewards precise stabilization.
 
-1. Inject energy and reduce global tracking error to enter a capture region.
-2. Switch to a hold mode that rewards precise stabilization.
+Notation:
 
-### Notation
+- Let theta = [theta1, theta2, theta3] be joint angles; target = theta*.
+- angle_diff = wrap(theta - target) into [-π, π].
+- tracking_error = sum_i w_i * angle_diff_i^2, where weights emphasize the top link (example weights = [0.2, 0.2, 0.6]).
+- rot_energy = sum(theta_dot^2).
 
-* Let $\theta = [\theta_1, \theta_2, \theta_3]$ be the joint angles and $\theta^*$ the target configuration.
-* Angular error is computed as:
+Reward components implemented in `TriplePendulumTeacher.compute_reward`:
 
-$$
-\Delta\theta = \mathrm{wrap}(\theta - \theta^*)
-$$
+1) tracking_error (quadratic penalty): encourages alignment with the current target.
 
-where each component is wrapped into $[-\pi, \pi]$.
+	tracking_error = Σ_i w_i * angle_diff_i^2
 
-* Tracking error:
+	This term is used to compute other shaped terms and to detect capture / stable regions.
 
-$$
-E_{\text{track}}
-================
+2) progress_bonus: rewards the agent for reducing tracking_error relative to the previous step.
 
-\sum_{i=1}^{3}
-w_i (\Delta\theta_i)^2
-$$
+	progress_bonus = 5.0 * exp(-4.0 * tracking_error) * (prev_tracking_error - tracking_error)
 
-where the weights emphasize the upper links (e.g. $w=[0.2, 0.2, 0.6]$).
+	Purpose: encourage continuous improvements and avoid dithering near plateaus.
 
-* Rotational energy proxy:
+3) energy_bonus (swing-up incentive): a small positive reward during swing-phase to encourage energy injection when far from the target.
 
-$$
-E_{\text{rot}}
-==============
+	energy_bonus = 0.08 * swing_phase * tanh(rot_energy / 30)
 
-\sum_{i=1}^{3}
-\dot{\theta}_i^2
-$$
+	where swing_phase = clip(tracking_error / 2.0, 0, 1)
 
----
+4) cart_penalty: penalizes excessive cart displacement and velocity, scaled by (1 - swing_phase) so that high cart penalties are mostly applied when near the target.
 
-### Reward Components
+	cart_penalty = (1 - swing_phase) * (0.05 * x^2 + 0.03 * x_dot^2)
 
-#### 1) Tracking Error
+5) hold_bonus: once captured (small tracking_error + low velocities) a strong hold bonus progressively increases the reward to encourage holding the upright configuration.
 
-Quadratic penalty encouraging alignment with the current target:
+	hold_bonus = 12.0 * clip(stable_steps / 80, 0, 1)
 
-$$
-E_{\text{track}}
-================
+6) terminal penalty: large negative penalty (e.g., -25) for violating episode constraints (cart out of bounds or excessively high angular velocities).
 
-\sum_{i=1}^{3}
-w_i (\Delta\theta_i)^2
-$$
+Phase logic:
 
-This term is used both for reward shaping and for detecting capture/stable regions.
+- If not captured (capture_counter == 0): reward is primarily swing-up objective: exponential of tracking error + progress_bonus + energy_bonus - cart_penalty.
+- If captured: reward focuses on hold: higher exponential multiplier on tracking precision, negative rotational energy penalty, hold_bonus, and lighter progress bonus.
 
----
+Stability criteria: success is declared when tracking_error < 0.05 and stable_steps > 100.
 
-#### 2) Progress Bonus
+Design rationale: the combination of local improvement signals (progress_bonus) and phase-dependent incentives provides a smooth curriculum between swing-up and stabilization without requiring an external phase detector.
 
-Rewards the agent for reducing tracking error relative to the previous timestep:
-
-$$
-R_{\text{progress}}
-===================
-
-5.0
-\exp(-4E_{\text{track}})
-\left(
-E_{\text{track}}^{\text{prev}}
-------------------------------
-
-E_{\text{track}}
-\right)
-$$
-
-**Purpose:** encourage continuous improvement and prevent dithering near local plateaus.
-
----
-
-#### 3) Energy Bonus (Swing-Up Incentive)
-
-Provides a small reward for energy injection when far from the target:
-
-$$
-R_{\text{energy}}
-=================
-
-0.08 \cdot s \cdot
-\tanh!\left(
-\frac{E_{\text{rot}}}{30}
-\right)
-$$
-
-where
-
-$$
-s
-=
-
-\mathrm{clip}
-\left(
-\frac{E_{\text{track}}}{2.0},
-0,
-1
-\right)
-$$
-
-is the swing-phase coefficient.
-
-**Purpose:** encourage active swing-up behavior while gradually fading near the target.
-
----
-
-#### 4) Cart Penalty
-
-Penalizes excessive cart displacement and velocity:
-
-$$
-P_{\text{cart}}
-===============
-
-(1-s)
-\left(
-0.05x^2
-+
-0.03\dot{x}^2
-\right)
-$$
-
-The factor $(1-s)$ ensures that cart regulation becomes important primarily after the target region has been reached.
-
----
-
-#### 5) Hold Bonus
-
-Once the pendulum is captured and stabilized, an additional hold reward is applied:
-
-$$
-R_{\text{hold}}
-===============
-
-12.0
-\cdot
-\mathrm{clip}
-\left(
-\frac{\text{stable_steps}}{80},
-0,
-1
-\right)
-$$
-
-**Purpose:** strongly incentivize maintaining the upright configuration instead of repeatedly re-swinging.
-
----
-
-#### 6) Terminal Penalty
-
-A large negative reward is applied whenever episode constraints are violated:
-
-$$
-R_{\text{terminal}}
-===================
-
--25
-$$
-
-Examples include:
-
-* cart position outside allowed bounds;
-* excessively large angular velocities;
-* unstable simulation states.
-
----
-
-### Phase Logic
-
-#### Swing-Up Phase
-
-If the target has not yet been captured (`capture_counter == 0`):
-
-$$
-R
-=
-
-e^{-E_{\text{track}}}
-+
-R_{\text{progress}}
-+
-R_{\text{energy}}
------------------
-
-P_{\text{cart}}
-$$
-
-The reward prioritizes reducing tracking error while generating sufficient energy for swing-up.
-
----
-
-#### Stabilization Phase
-
-After capture:
-
-$$
-R
-=
-
-## 2e^{-E_{\text{track}}}
-
-0.01E_{\text{rot}}
-+
-R_{\text{hold}}
-+
-0.5R_{\text{progress}}
-$$
-
-The objective shifts from energy generation toward accurate stabilization and long-term balance maintenance.
-
----
-
-### Stability Criterion
-
-A successful stabilization is declared when
-
-$$
-E_{\text{track}} < 0.05
-$$
-
-and
-
-$$
-\text{stable_steps} > 100
-$$
-
-simultaneously hold.
-
----
-
-### Design Rationale
-
-The reward combines:
-
-* global objective shaping through tracking error;
-* local improvement signals via the progress bonus;
-* energy-based incentives for swing-up;
-* state-dependent cart regulation;
-* long-horizon stabilization rewards.
-
-Together these components create an implicit curriculum that smoothly transitions from swing-up to stabilization without requiring an explicit phase detector or external supervisory controller.
-
+--------------------------------------------------------------------------------
 
 **9. Curriculum Learning**
 
