@@ -18,12 +18,12 @@ XML_PATH = str(BASE_DIR / "triple_pendulum.xml")
 
 # Paths to the pre-trained PPO model and its corresponding environment normalizer
 MODEL_PATH = str(
-    BASE_DIR / "models_teacher" / "teacher_stage4_415000000_steps"
+    BASE_DIR / "models_teacher" / "teacher_stage4_430000000_steps"
 )
 VEC_PATH = str(
     BASE_DIR 
     / "models_teacher" 
-    / "teacher_stage4_vecnormalize_415000000_steps.pkl"
+    / "teacher_stage4_vecnormalize_430000000_steps.pkl"
 )
 
 EPISODE_STEPS = 1000
