@@ -18,11 +18,13 @@ import tkinter as tk
 # Configuration constants
 # -----------------------------------------------------------------------------
 BASE_DIR = Path(__file__).resolve().parent
-XML_PATH = BASE_DIR / "triple_pendulum.xml"
-MODEL_PATH = BASE_DIR / "models_teacher" / "teacher_stage4_430000000_steps"
-VEC_PATH = (
-    BASE_DIR / "models_teacher" / "teacher_stage4_vecnormalize_430000000_steps.pkl"
-)
+
+ASSETS_DIR = BASE_DIR / "assets"
+CHECKPOINTS_DIR = BASE_DIR / "checkpoints" / "models_teacher"
+
+XML_PATH = ASSETS_DIR / "triple_pendulum.xml"
+MODEL_PATH = CHECKPOINTS_DIR / "teacher_stage4_430000000_steps"
+VEC_PATH = CHECKPOINTS_DIR / "teacher_stage4_vecnormalize_430000000_steps.pkl"
 
 EPISODE_STEPS = 1200
 RENDER_FPS = 50.0
