@@ -374,6 +374,12 @@ python src/ppo_agent.py
 
 You can edit paths for `BEST_MODEL_PATH` and `BEST_VEC_PATH` inside `src/ppo_agent.py` to load pre-trained artifacts.
 
+8) Check PPO agent:
+
+```bash
+python app.py
+```
+
 --------------------------------------------------------------------------------
 
 **17. Reproducing Experiments**
